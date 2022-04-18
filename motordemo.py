@@ -67,37 +67,41 @@ if __name__ == "__main__":
     # Forward/Backward
     print("Driving Motor 1 one way, stopping, then reversing...")
     io.set_PWM_dutycycle(MTR1_LEGA, 170)
-    io.set_PWM_dutycycle(MTR1_LEGB,   0)
+    io.set_PWM_dutycycle(MTR2_LEGA, 170)
+    io.set_PWM_dutycycle(MTR1_LEGB, 0)
+    io.set_PWM_dutycycle(MTR2_LEGB, 0)
+    time.sleep(2)
+
+    io.set_PWM_dutycycle(MTR1_LEGA, 0)
+    io.set_PWM_dutycycle(MTR2_LEGA, 0)
     time.sleep(1)
 
-    io.set_PWM_dutycycle(MTR1_LEGA,   0)
-    io.set_PWM_dutycycle(MTR1_LEGB,   0)
-    time.sleep(1)
-    
-    io.set_PWM_dutycycle(MTR1_LEGA,   0)
-    io.set_PWM_dutycycle(MTR1_LEGB, 170)
-    time.sleep(1)
+    io.set_PWM_dutycycle(MTR1_LEGA, 170)
+    io.set_PWM_dutycycle(MTR2_LEGA, 0)
+    io.set_PWM_dutycycle(MTR1_LEGB, 0)
+    io.set_PWM_dutycycle(MTR2_LEGB, 0)
+    time.sleep(5)
 
-    io.set_PWM_dutycycle(MTR1_LEGA,   0)
-    io.set_PWM_dutycycle(MTR1_LEGB,   0)
+    io.set_PWM_dutycycle(MTR1_LEGA, 0)
+    io.set_PWM_dutycycle(MTR2_LEGA, 0)
     time.sleep(1)
 
+    io.set_PWM_dutycycle(MTR1_LEGA, 170)
+    io.set_PWM_dutycycle(MTR2_LEGA, 170)
+    io.set_PWM_dutycycle(MTR1_LEGB, 0)
+    io.set_PWM_dutycycle(MTR2_LEGB, 0)
+    time.sleep(5)
 
-    ############################################################
-    # Ramping up/down.  Up to 254 (not 255).
-    print("Ramping Motor 1 up, down - four times...")
+    io.set_PWM_dutycycle(MTR1_LEGA, 0)
+    io.set_PWM_dutycycle(MTR2_LEGA, 0)
+    time.sleep(1)
 
-    for i in range(4):
-        for pwmlevel in [50, 100, 150, 200, 254, 200, 150, 100, 50, 0]:
-            print("Motor 1 Leg A = %3d" % pwmlevel)
-            io.set_PWM_dutycycle(MTR1_LEGA, pwmlevel)
-            time.sleep(1)
+    io.set_PWM_dutycycle(MTR1_LEGA, 0)
+    io.set_PWM_dutycycle(MTR2_LEGA, 0)
+    io.set_PWM_dutycycle(MTR1_LEGB, 0)
+    io.set_PWM_dutycycle(MTR2_LEGB, 170)
+    time.sleep(5)
 
-    ############################################################
-    # Turn Off.
-    # Note the PWM still stay at the last commanded value.  So you
-    # want to be sure to set to zero before the program closes.  else
-    # your robot will run away...
     print("Turning off...")
 
     # Clear the PINs (commands).
