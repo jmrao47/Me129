@@ -69,7 +69,7 @@ class Motors:
 
         # Determine left and right legs based on direction
         left_leg = Motors.MTR1_LEGA if leftdutycycle > 0 else Motors.MTR1_LEGB
-        right_leg = Motors.MTR2_LEGA if leftdutycycle > 0 else Motors.MTR2_LEGB
+        right_leg = Motors.MTR2_LEGA if rightdutycycle > 0 else Motors.MTR2_LEGB
 
         self.io.set_PWM_dutycycle(left_leg, abs(leftdutycycle * Motors.PWM_MAX))
         self.io.set_PWM_dutycycle(right_leg, abs(rightdutycycle * Motors.PWM_MAX))
