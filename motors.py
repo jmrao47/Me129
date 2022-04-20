@@ -4,6 +4,7 @@
 import pigpio
 import sys
 import time
+import math
 
 
 class Motors:
@@ -17,6 +18,8 @@ class Motors:
 
     PWM_MAX = 255
     PWM_FREQUENCY = 1000
+    CAR_LENGTH = 0.135
+    TURNING_FACTOR = 1
 
     # Connect to the GPIO, prepare and clear the pins
     def __init__(self):
@@ -58,11 +61,11 @@ class Motors:
     def set(self, leftdutycycle, rightdutycycle):
         # Return if values out of range
         if abs(leftdutycycle) > 1:
-            print(f'Left PWM {leftdutycycle} out of range.')
+            print(f"Left PWM {leftdutycycle} out of range.")
             return
 
         if abs(rightdutycycle) > 1:
-            print(f'Right PWM {leftdutycycle} out of range.')
+            print(f"Right PWM {rightdutycycle} out of range.")
             return
 
         self.clear_pins()
@@ -74,11 +77,104 @@ class Motors:
         self.io.set_PWM_dutycycle(left_leg, abs(leftdutycycle * Motors.PWM_MAX))
         self.io.set_PWM_dutycycle(right_leg, abs(rightdutycycle * Motors.PWM_MAX))
 
+    def getleftlineardutycycle(self, speed):
+        dir = speed / abs(speed)
+        leftdutycycle = (abs(speed) + .20194) / .72809 * dir
+
+        # print(f"Leftdutycycle: {leftdutycycle}")
+        return leftdutycycle
+
+    def getrightlineardutycycle(self, speed):
+        dir = speed / abs(speed)
+        rightdutycycle = (abs(speed) + .23644) / .64746 * dir
+
+        # print(f"Rightdutycycle: {rightdutycycle}")
+        return rightdutycycle
+
+    def getlinear(self, speed):
+        return self.getleftlineardutycycle(speed), self.getrightlineardutycycle(speed)
+
     def setlinear(self, speed):
-        pass
+        leftdutycycle = self.getleftlineardutycycle(speed)
+        rightdutycycle = self.getrightlineardutycycle(speed)
+
+        self.set(leftdutycycle, rightdutycycle)
+
+    # Speed in degrees per second
+    # Positive is CCW (turning on right wheel)
+    # Negative is CW (turning on left wheel)
+    def getleftspindutycycle(self, spin):
+        leftdutycycle = (abs(spin) + 206.43) / 442.86
+        return leftdutycycle
+
+    def getrightspindutycycle(self, spin):
+        rightdutycycle = (abs(spin) + 184.17) / 350
+        return rightdutycycle
+
+    def getspin(self, spin):
+        if spin > 0:
+            return 0, self.getrightspindutycycle(spin)
+        else:
+            return self.getleftspindutycycle(spin), 0
 
     def setspin(self, speed):
-        pass
+        leftdutycycle, rightdutycycle = self.getspin(speed)
+        self.set(leftdutycycle, rightdutycycle)
+
+    def setvel(self, linear, spin):
+        left_linear, right_linear = self.getlinear(linear)
+        left_spin, right_spin = self.getspin(spin)
+
+        right_speed = right_spin + right_linear
+        left_speed = left_spin + left_linear
+
+        if spin > 0:
+            if right_speed > 1:
+                left_speed = 1 - (right_speed - left_speed)
+                right_speed = 1
+        else:
+            if left_speed > 1:
+                right_speed = 1 - (left_speed - right_speed)
+                left_speed = 1
+
+        print(f"Left speed: {left_speed}, Right speed: {right_speed}")
+        self.set(left_speed, right_speed)
+
+        '''
+        T = 360 / abs(spin)
+        outer_radius = linear * T / (2 * math.pi)
+        inner_radius = outer_radius - Motors.CAR_LENGTH
+
+        inner_speed = 2 * math.pi * inner_radius / T
+        outer_speed = linear
+
+        # How fast the wheels would have to spin in place
+        # to achieve these forward speeds
+        inner_spin = 360 / (2 * math.pi * Motors.CAR_LENGTH / inner_speed)
+        outer_spin = 360 / (2 * math.pi * Motors.CAR_LENGTH / outer_speed)
+
+        print(f"inner_spin: {inner_spin}, outer_spin: {outer_spin}")
+        print(f"left linear: {self.getleftlineardutycycle(inner_speed)}, left spin: {self.getleftspindutycycle(inner_spin)}")
+        print(f"right linear: {self.getrightlineardutycycle(outer_speed)}, right spin: {self.getrightspindutycycle(outer_spin)}")
+
+        # Spinning CCW - left wheel inside
+        if spin > 0:
+            leftdutycycle = (self.getleftlineardutycycle(inner_speed) + self.getleftspindutycycle(inner_spin)) / 2
+            rightdutycycle = (self.getrightlineardutycycle(outer_speed) + self.getrightspindutycycle(outer_spin)) / 2
+
+        # Spinning CW - left wheel outside
+        else:
+            leftdutycycle = (self.getleftlineardutycycle(outer_speed) + self.getleftspindutycycle(outer_spin)) / 2
+            rightdutycycle = (self.getrightlineardutycycle(inner_speed) + self.getrightspindutycycle(inner_spin)) / 2
+
+        print(f"left: {leftdutycycle}, right: {rightdutycycle}")
+        self.set(leftdutycycle, rightdutycycle)
+        '''
+
+    def setcircle(self, d, T):
+        linear = d * math.pi / T
+        spin = 360 / T
+        motors.setvel(linear, spin)
 
 
 if __name__ == "__main__":
@@ -87,8 +183,20 @@ if __name__ == "__main__":
 
     # Run the code
     try:
-        motors.set(0.8, 0.8)
-        time.sleep(10)
+        # motors.set(0.94, 0.85)
+
+        #linear = float(input("Linear: "))
+        #spin = float(input("Spin: "))
+
+        d = float(input("diameter: "))
+        T = float(input("time: "))
+
+        motors.setcircle(d, T)
+        time.sleep(3 * T)
+
+        #motors.setvel(linear, spin)
+        #motors.setspin(45)
+        #time.sleep(20)
 
     except BaseException as ex:
         print("Ending due to exception: %s" % repr(ex))
