@@ -81,14 +81,12 @@ class Motors:
         dir = speed / abs(speed)
         leftdutycycle = (abs(speed) + .20194) / .72809 * dir
 
-        # print(f"Leftdutycycle: {leftdutycycle}")
         return leftdutycycle
 
     def getrightlineardutycycle(self, speed):
         dir = speed / abs(speed)
         rightdutycycle = (abs(speed) + .23644) / .64746 * dir
 
-        # print(f"Rightdutycycle: {rightdutycycle}")
         return rightdutycycle
 
     def getlinear(self, speed):
@@ -121,7 +119,7 @@ class Motors:
         leftdutycycle, rightdutycycle = self.getspin(speed)
         self.set(leftdutycycle, rightdutycycle)
 
-    def setvel(self, linear, spin):
+    def setvel_old(self, linear, spin):
         left_linear, right_linear = self.getlinear(linear)
         left_spin, right_spin = self.getspin(spin)
 
@@ -137,10 +135,9 @@ class Motors:
                 right_speed = 1 - (left_speed - right_speed)
                 left_speed = 1
 
-        print(f"Left speed: {left_speed}, Right speed: {right_speed}")
         self.set(left_speed, right_speed)
 
-        '''
+    def setvel(self, linear, spin):
         T = 360 / abs(spin)
         outer_radius = linear * T / (2 * math.pi)
         inner_radius = outer_radius - Motors.CAR_LENGTH
@@ -148,34 +145,22 @@ class Motors:
         inner_speed = 2 * math.pi * inner_radius / T
         outer_speed = linear
 
-        # How fast the wheels would have to spin in place
-        # to achieve these forward speeds
-        inner_spin = 360 / (2 * math.pi * Motors.CAR_LENGTH / inner_speed)
-        outer_spin = 360 / (2 * math.pi * Motors.CAR_LENGTH / outer_speed)
-
-        print(f"inner_spin: {inner_spin}, outer_spin: {outer_spin}")
-        print(f"left linear: {self.getleftlineardutycycle(inner_speed)}, left spin: {self.getleftspindutycycle(inner_spin)}")
-        print(f"right linear: {self.getrightlineardutycycle(outer_speed)}, right spin: {self.getrightspindutycycle(outer_spin)}")
-
         # Spinning CCW - left wheel inside
         if spin > 0:
-            leftdutycycle = (self.getleftlineardutycycle(inner_speed) + self.getleftspindutycycle(inner_spin)) / 2
-            rightdutycycle = (self.getrightlineardutycycle(outer_speed) + self.getrightspindutycycle(outer_spin)) / 2
+            leftdutycycle = self.getleftlineardutycycle(inner_speed)
+            rightdutycycle = self.getrightlineardutycycle(outer_speed)
 
         # Spinning CW - left wheel outside
         else:
-            leftdutycycle = (self.getleftlineardutycycle(outer_speed) + self.getleftspindutycycle(outer_spin)) / 2
-            rightdutycycle = (self.getrightlineardutycycle(inner_speed) + self.getrightspindutycycle(inner_spin)) / 2
+            leftdutycycle = self.getleftlineardutycycle(outer_speed)
+            rightdutycycle = self.getrightlineardutycycle(inner_speed)
 
-        print(f"left: {leftdutycycle}, right: {rightdutycycle}")
         self.set(leftdutycycle, rightdutycycle)
-        '''
 
     def setcircle(self, d, T):
         linear = d * math.pi / T
         spin = 360 / T
         motors.setvel(linear, spin)
-
 
 if __name__ == "__main__":
     # Instantiate the low-level object
@@ -183,20 +168,11 @@ if __name__ == "__main__":
 
     # Run the code
     try:
-        # motors.set(0.94, 0.85)
-
-        #linear = float(input("Linear: "))
-        #spin = float(input("Spin: "))
-
-        d = float(input("diameter: "))
-        T = float(input("time: "))
+        d = float(input("d: "))
+        T = float(input("T: "))
 
         motors.setcircle(d, T)
-        time.sleep(3 * T)
-
-        #motors.setvel(linear, spin)
-        #motors.setspin(45)
-        #time.sleep(20)
+        time.sleep(100)
 
     except BaseException as ex:
         print("Ending due to exception: %s" % repr(ex))
