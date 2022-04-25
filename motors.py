@@ -16,6 +16,12 @@ class Motors:
 
     MOTOR_LEGS = [MTR1_LEGA, MTR1_LEGB, MTR2_LEGA, MTR2_LEGB]
 
+    LEFT_IR = 14
+    MIDDLE_IR = 15
+    RIGHT_IR = 18
+
+    IR_CHANNELS = [LEFT_IR, MIDDLE_IR, RIGHT_IR]
+
     PWM_MAX = 255
     PWM_FREQUENCY = 1000
     CAR_LENGTH = 0.135
@@ -47,6 +53,14 @@ class Motors:
 
         # Clear pins
         self.clear_pins()
+
+        # Set up the three IR sensors as inputs
+        for ir_pin in Motors.IR_CHANNELS:
+            self.io.set_mode(ir_pin, pigpio.INPUT)
+
+    def get_ir_states(self):
+        for ir_pin in Motors.IR_CHANNELS:
+            print(f'Pin: {ir_pin}, State: {self.io.read(ir_pin)}')
 
     def clear_pins(self):
         for leg in Motors.MOTOR_LEGS:
@@ -162,17 +176,17 @@ class Motors:
         spin = 360 / T
         motors.setvel(linear, spin)
 
+
 if __name__ == "__main__":
     # Instantiate the low-level object
     motors = Motors()
 
     # Run the code
     try:
-        d = float(input("d: "))
-        T = float(input("T: "))
-
-        motors.setcircle(d, T)
-        time.sleep(100)
+        while True:
+            motors.get_ir_states()
+            input("Again?")
+            print()
 
     except BaseException as ex:
         print("Ending due to exception: %s" % repr(ex))
