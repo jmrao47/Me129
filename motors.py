@@ -27,14 +27,18 @@ class Motors:
     CAR_LENGTH = 0.135
     TURNING_FACTOR = 1
 
+    COMPLETELY_OFF = (0, 0, 0)
     OFF_LEFT = (0, 0, 1)
     SLIGHT_OFF_LEFT = (0, 1, 1)
     OFF_RIGHT = (1, 0, 0)
     SLIGHT_OFF_RIGHT = (1, 1, 0)
     CENTERED = (0, 1, 0)
+    COMPLETELY_ON = (1, 1, 1)
 
     # Connect to the GPIO, prepare and clear the pins
     def __init__(self):
+        self.searching = True
+
         # Prepare the GPIO connetion (to command the motors).
         print("Setting up the GPIO...")
 
@@ -63,6 +67,12 @@ class Motors:
         # Set up the three IR sensors as inputs
         for ir_pin in Motors.IR_CHANNELS:
             self.io.set_mode(ir_pin, pigpio.INPUT)
+
+    def is_searching(self):
+        return self.searching
+
+    def set_searching(self, val):
+        self.searching = val
 
     def get_ir_states(self):
         return tuple([self.io.read(ir_pin) for ir_pin in Motors.IR_CHANNELS])
@@ -99,7 +109,8 @@ class Motors:
 
     def getleftlineardutycycle(self, speed):
         dir = speed / abs(speed)
-        leftdutycycle = (abs(speed) + .20194) / .72809 * dir
+        # leftdutycycle = (abs(speed) + .20194) / .72809 * dir
+        leftdutycycle = (abs(speed) + .23644) / .68 * dir
 
         return leftdutycycle
 
@@ -183,49 +194,63 @@ class Motors:
         motors.setvel(linear, spin)
 
     def turn_left(self):
-        self.setvel(0.4, 50)
+        self.setvel(0.3, 50)
 
     def turn_slight_left(self):
-        self.setvel(0.4, 20)
+        self.setvel(0.3, 20)
 
     def turn_extreme_left(self):
-        self.setspin(150)
+        self.setspin(75)
 
     def turn_right(self):
-        self.setvel(0.4, -50)
+        self.setvel(0.3, -50)
 
     def turn_slight_right(self):
-        self.setvel(0.4, -20)
+        self.setvel(0.3, -20)
     
     def turn_extreme_right(self):
-        self.setspin(-150)
+        self.setspin(-75)
 
 
 if __name__ == "__main__":
     # Instantiate the low-level object
     motors = Motors()
-    time_step = 0.2
+    time_step = 0.05
 
     # Run the code
     try:
         prev_state = (0, 0, 0)
 
         while True:
+            time.sleep(time_step)
             state = motors.get_ir_states()
 
-            # Past end - stop
-            if state == (0, 0, 0):
+            if state != Motors.COMPLETELY_OFF:
+                motors.set_searching(False)
+            
+            if motors.is_searching():
+                motors.setlinear(0.3)
+                continue
+
+            if state == Motors.COMPLETELY_OFF:
                 # Veered completely off left
                 if prev_state in [Motors.SLIGHT_OFF_LEFT, Motors.OFF_LEFT]:
+                    print('Extreme right!')
                     motors.turn_extreme_right()
 
                 # Veered completely off right
                 elif prev_state in [Motors.SLIGHT_OFF_RIGHT, Motors.OFF_RIGHT]:
+                    print('Extreme left!')
+                    motors.turn_extreme_left()
+
+                elif prev_state == Motors.COMPLETELY_ON:
                     motors.turn_extreme_left()
 
                 # Finished course
                 else:
                     motors.clear_pins()
+
+                state = prev_state
 
             # Veered left - turn right
             elif state == Motors.OFF_LEFT:
@@ -258,11 +283,11 @@ if __name__ == "__main__":
             # Centered - drive straight
             elif state == (1, 1, 1):
                 print('Driving straight!')
-                motors.setlinear(0.4)
+                motors.setlinear(0.3)
 
             print()
             prev_state = state
-            time.sleep(time_step)
+            
 
     except BaseException as ex:
         print("Ending due to exception: %s" % repr(ex))
