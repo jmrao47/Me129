@@ -8,6 +8,9 @@ import math
 
 
 class Motors:
+    DEFAULT_SPEED = 0.25
+    DEFAULT_SPIRAL_ANGLE = 130
+
     # Define the motor pins.
     MTR1_LEGA = 7
     MTR1_LEGB = 8
@@ -33,6 +36,7 @@ class Motors:
     OFF_RIGHT = (1, 0, 0)
     SLIGHT_OFF_RIGHT = (1, 1, 0)
     CENTERED = (0, 1, 0)
+    CENTER_OFF = (1, 0, 1)
     COMPLETELY_ON = (1, 1, 1)
 
     # Connect to the GPIO, prepare and clear the pins
@@ -88,7 +92,7 @@ class Motors:
 
     # Sets all four pins
     def set(self, leftdutycycle, rightdutycycle):
-        print(f'Left: {leftdutycycle * Motors.PWM_MAX}, Right: {rightdutycycle * Motors.PWM_MAX}')
+        #print(f'Left: {leftdutycycle * Motors.PWM_MAX}, Right: {rightdutycycle * Motors.PWM_MAX}')
         # Return if values out of range
         if abs(leftdutycycle) > 1:
             print(f"Left PWM {leftdutycycle} out of range.")
@@ -110,7 +114,7 @@ class Motors:
     def getleftlineardutycycle(self, speed):
         dir = speed / abs(speed)
         # leftdutycycle = (abs(speed) + .20194) / .72809 * dir
-        leftdutycycle = (abs(speed) + .23644) / .68 * dir
+        leftdutycycle = (abs(speed) + .23644) / .77 * dir
 
         return leftdutycycle
 
@@ -193,33 +197,34 @@ class Motors:
         spin = 360 / T
         motors.setvel(linear, spin)
 
+    def drive_forward(self):
+        self.setlinear(Motors.DEFAULT_SPEED)
+
+    def spiral_outward(self, angle):
+        self.setvel(Motors.DEFAULT_SPEED, angle)
+
     def turn_left(self):
-        self.setvel(0.3, 50)
+        self.setvel(Motors.DEFAULT_SPEED, 50)
 
     def turn_slight_left(self):
-        self.setvel(0.3, 20)
-
-    def turn_extreme_left(self):
-        self.setspin(75)
+        self.setvel(Motors.DEFAULT_SPEED, 20)
 
     def turn_right(self):
-        self.setvel(0.3, -50)
+        self.setvel(Motors.DEFAULT_SPEED, -50)
 
     def turn_slight_right(self):
-        self.setvel(0.3, -20)
-    
-    def turn_extreme_right(self):
-        self.setspin(-75)
+        self.setvel(Motors.DEFAULT_SPEED, -20)
 
 
 if __name__ == "__main__":
     # Instantiate the low-level object
     motors = Motors()
     time_step = 0.05
+    spiral_angle = Motors.DEFAULT_SPIRAL_ANGLE
 
     # Run the code
     try:
-        prev_state = (0, 0, 0)
+        prev_state = Motors.COMPLETELY_OFF
 
         while True:
             time.sleep(time_step)
@@ -228,64 +233,58 @@ if __name__ == "__main__":
             if state != Motors.COMPLETELY_OFF:
                 motors.set_searching(False)
             
+            # Spiral to search, changing angle to spiral outward
             if motors.is_searching():
-                motors.setlinear(0.3)
+                spiral_dir = spiral_angle / abs(spiral_angle)
+                spiral_angle -= 0.1 * spiral_dir
+                motors.spiral_outward(spiral_angle)
                 continue
 
+            # Robot is lost, so start spiraling
             if state == Motors.COMPLETELY_OFF:
-                # Veered completely off left
+                # Veered completely off left - spiral right
                 if prev_state in [Motors.SLIGHT_OFF_LEFT, Motors.OFF_LEFT]:
-                    print('Extreme right!')
-                    motors.turn_extreme_right()
+                    print('spiral left')
+                    spiral_angle = -Motors.DEFAULT_SPIRAL_ANGLE
 
-                # Veered completely off right
+                # Veered completely off right - spiral left
                 elif prev_state in [Motors.SLIGHT_OFF_RIGHT, Motors.OFF_RIGHT]:
-                    print('Extreme left!')
-                    motors.turn_extreme_left()
+                    print('spiral right')
+                    spiral_angle = Motors.DEFAULT_SPIRAL_ANGLE
 
-                elif prev_state == Motors.COMPLETELY_ON:
-                    motors.turn_extreme_left()
-
-                # Finished course
+                # Default - spiral left
                 else:
-                    motors.clear_pins()
+                    print('default')
+                    spiral_angle = Motors.DEFAULT_SPIRAL_ANGLE
 
-                state = prev_state
+                motors.set_searching(True)
+                continue
+
 
             # Veered left - turn right
             elif state == Motors.OFF_LEFT:
-                print('Turning right!')
                 motors.turn_right()
 
             # Centered - drive straight
             elif state == Motors.CENTERED:
-                print('Driving straight!')
-                motors.setlinear(0.4)
+                motors.drive_forward()
 
             # Veered slight left - turn slight right
             elif state == Motors.SLIGHT_OFF_LEFT:
-                print('Slight right!')
                 motors.turn_slight_right()
 
             # Veered right - turn left
             elif state == Motors.OFF_RIGHT:
-                print('Turning left!')
                 motors.turn_left()
-
-            #elif state == (1, 0, 1):
-            #    pass
             
             # Veered slight right - turn slight left
             elif state == Motors.SLIGHT_OFF_RIGHT:
-                print('Slight left!')
                 motors.turn_slight_left()
             
             # Centered - drive straight
             elif state == (1, 1, 1):
-                print('Driving straight!')
-                motors.setlinear(0.3)
+                motors.drive_forward()
 
-            print()
             prev_state = state
             
 
