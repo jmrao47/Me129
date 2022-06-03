@@ -16,6 +16,9 @@ class HardwareBot:
     PWM_MAX = 255
     PWM_FREQUENCY = 1000
 
+    INTERSECTION_OBSTACLE_DISTANCE = 0.15
+    STREET_OBSTACLE_DISTANCE = 0.3
+
     # Motor pins
     MTR1_LEGA = 7
     MTR1_LEGB = 8
@@ -63,6 +66,9 @@ class HardwareBot:
 
     def get_ir_states(self):
         return self.infrared.get_ir_states()
+
+    def get_forward_distance(self):
+        return self.ultrasound.get_distances(1)
 
     # Clear the pins, disconnect the interface, and cancel the callbacks in the ultrasound
     def shutdown(self):

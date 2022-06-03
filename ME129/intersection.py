@@ -1,29 +1,61 @@
 import random 
+import pickle 
 
-# Headings
+import cfg 
+
+# cfg.headings
 NORTH = 0
 WEST = 1
 SOUTH = 2
 EAST = 3
+STOP = 'Stop'
 
-HEADING = {NORTH:'North', WEST:'West ', SOUTH:'South', EAST:'East', None:'None'} 
+HEADING = {NORTH:'north', WEST:'west ', SOUTH:'south', EAST:'east', None:'none', STOP:'stop'} 
+HEADING_TO_INDEX = {v: k for k, v in HEADING.items()}
 
 # Street status
 UNKNOWN = 'Unknown'
 NOSTREET = 'NoStreet'
 UNEXPLORED = 'Unexplored'
 CONNECTED = 'Connected'
-STOP = 'Stop'
+BLOCKED = 'Blocked'
 
-# Global Variables:
-intersections = [] # List of intersections
-last_intersection = None # Last intersection visited
-longitude = 0 # Current east/west coordinate
-latitude = 0 # Current north/south coordinate
-heading = NORTH # Current heading
+NOPATH = 'NoPath'
 
-# New longitudeitude/latitudeitude value after a step in the given heading.
+# cfg.heading is a number 
+def orient_bot(lon, lat, head):
+    cfg.longitude = int(lon) 
+    cfg.latitude = int(lat) 
+    cfg.heading = HEADING_TO_INDEX[head.lower()] 
+    
+def print_map():
+    print(cfg.intersections)
+
+def clear_map():
+    cfg.intersections = []
+
+def save_map(filename):
+    filehandler = open(filename, 'wb') 
+    pickle.dump(cfg.intersections, filehandler)
+
+def load_map(filename):
+    filehandler = open(filename, 'rb') 
+    cfg.intersections = pickle.load(filehandler)
+
+def distance_between(i1, i2):
+    def get_coordinates(i):
+        if type(i) is tuple:
+            return i 
+        return i.longitude, i.latitude
+
+    x1, y1 = get_coordinates(i1)
+    x2, y2 = get_coordinates(i2)
+
+    return abs(x1 - x2) + abs(y1 - y2)
+
+# New cfg.longitudeitude/cfg.latitudeitude value after a step in the given cfg.heading.
 def shift(longitude, latitude, heading):
+    #print(f'SHIFT! lon: {cfg.longitude}, lat: {cfg.latitude}, cfg.heading: {cfg.heading}')
     if heading % 4 == NORTH:
         return (longitude, latitude+1)
     elif heading % 4 == WEST:
@@ -37,20 +69,57 @@ def shift(longitude, latitude, heading):
 
 # Find the intersection
 def find_intersection(longitude, latitude):
-    list = [i for i in intersections if i.longitude == longitude and i.latitude == latitude]
+    list = [i for i in cfg.intersections if i.longitude == longitude and i.latitude == latitude]
     if len(list) == 0:
         return None
     if len(list) > 1:
-        raise Exception("Multiple intersections at (%2d,%2d)" % (longitude, latitude))
+        raise Exception("Multiple cfg.intersections at (%2d,%2d)" % (longitude, latitude))
     return list[0]
 
 def find_intersection_coordinates(coordinates):
     lon, lat = coordinates
     return find_intersection(lon, lat)
 
+def turn_distance_and_direction(cardinal_direction):
+    left_turns = (cardinal_direction - cfg.heading + 4) % 4
+    right_turns = (cfg.heading - cardinal_direction + 4) % 4
+
+    distance = min(left_turns, right_turns)
+    direction = 1 if left_turns < right_turns else -1
+
+    return distance, direction 
+    
+def turn_distance(cardinal_direction):
+    distance, _ = turn_distance_and_direction(cardinal_direction)
+    return distance 
+
+# Turn direction: 1 is left, -1 is right 
+def turn_direction(cardinal_direction):
+    _, direction = turn_distance_and_direction(cardinal_direction)
+    return direction
+
+def get_opposing_intersection(cur_intersection, direction=None):
+    if direction is None:
+        direction = cfg.heading
+
+    return find_intersection_coordinates(shift(cfg.longitude, cfg.latitude, direction))
+
+def set_opposing_intersection(cur_intersection, street_status, direction=None):
+    if direction is None:
+        direction = cfg.heading
+
+    opposing_intersection = get_opposing_intersection(cur_intersection, direction)
+
+    if opposing_intersection is not None:
+        opposite_heading = (direction + 2) % 4
+        opposing_intersection.streets[opposite_heading] = street_status 
+
 class Intersection:
-    # Initialize - create new intersection at (longitude, let)
+    # Initialize - create new intersection at (cfg.longitude, let)
     def __init__(self, longitude, latitude):
+        # Whether there is an obstacle at the intersection 
+        self.blocked = False 
+
         # Save the parameters.
         self.longitude = longitude
         self.latitude = latitude
@@ -64,35 +133,68 @@ class Intersection:
         # You are welcome to implement an arbitrary number of
         # "neighbors" to more directly match a general graph.
         # But the above should be sufficient for a regular grid.
-        # Add this to the global list of intersections to make it searchable.
-        global intersections
+        # Add this to the global list of cfg.intersections to make it searchable.
+
         if find_intersection(longitude, latitude) is not None:
-            raise Exception("Duplicate intersection at (%2d,%2d)" % (longitude,latitude))
-        intersections.append(self)
+            raise Exception("Duplicate intersection at (%2d,%2d)" % (longitude, latitude))
+        cfg.intersections.append(self)
 
     # Print format
     def __repr__(self):
-        return ("(%2d, %2d) N:%s W:%s S:%s E:%s - head %s\n" %
-        (self.longitude, self.latitude, self.streets[0],
-        self.streets[1], self.streets[2], self.streets[3],
-        HEADING[self.headingToTarget]))
+        return f'({self.longitude}, {self.latitude}), N:{self.streets[0]},\
+        W:{self.streets[1]}, S:{self.streets[2]}, E:{self.streets[3]},\
+        cfg.heading: {HEADING[self.headingToTarget]}, BLOCKED: {self.blocked}\n'
 
     def get_streets(self, street_status):
         return [i for i in range(4) if self.streets[i] == street_status]
 
+    def get_closest_neighbor_direction(self, target_coordinates, street_status):
+        min_dist = float('inf')
+        best_direction = None
+
+        for direction in self.get_streets(street_status):
+            neighbor_coordinates = shift(self.longitude, self.latitude, direction)
+            dist = distance_between(target_coordinates, neighbor_coordinates)
+
+            if dist < min_dist: 
+                min_dist = dist 
+                best_direction = direction
+
+        return best_direction
+
+
     def get_neighbor_intersections(self):
         neighbors = {}
 
-        for direction in range(4):
-            if self.streets[direction] == CONNECTED:
-                neighbor_lon, neighbor_lat = shift(self.longitude, self.latitude, direction)
-                neighbor_intersection = find_intersection(neighbor_lon, neighbor_lat)
+        for direction in self.get_streets(CONNECTED):
+            neighbor_lon, neighbor_lat = shift(self.longitude, self.latitude, direction)
+            neighbor_intersection = find_intersection(neighbor_lon, neighbor_lat)
+
+            if neighbor_intersection is not None:
                 neighbors[neighbor_intersection] = direction
 
         return neighbors
 
     def get_random_street(self, street_status):
-        indices = [i for i in range(len(self.streets)) if self.streets[i] == street_status]
+        indices = self.get_streets(street_status)
         return random.choice(indices)
+
+    def get_closest_street(self, street_status):
+        directions = self.get_streets(street_status)
+
+        closest_dir_distance = float('inf')
+        closest_dir = None
+
+        for dir in directions:
+            dist = turn_distance(dir)
+
+            if dist < closest_dir_distance:
+                closest_dir_distance = dist
+                closest_dir = dir 
+
+        return closest_dir
+
+    def get_coordinates(self):
+        return self.longitude, self.latitude
     
 

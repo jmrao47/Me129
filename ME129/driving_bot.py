@@ -3,6 +3,7 @@ import math
 
 from hardware_bot import HardwareBot
 from infrared import Infrared
+from intersection import *
 
 class DrivingBot(HardwareBot):
     # Driving constants
@@ -218,8 +219,11 @@ class DrivingBot(HardwareBot):
     # dir = 1 is a CCW turn
     # dir = -1 is a CW turn
     def spin_in_place(self, dir=1, speed=DEFAULT_TURN_SPEED):
-        leftdutycycle = -self.getleftlineardutycycle(speed)
-        rightdutycycle = self.getrightlineardutycycle(speed) 
+        #leftdutycycle = -self.getleftlineardutycycle(speed)
+        #rightdutycycle = self.getrightlineardutycycle(speed) 
+
+        leftdutycycle = -0.88
+        rightdutycycle = 0.88
 
         self.set(dir * leftdutycycle, dir * rightdutycycle)
 
@@ -273,14 +277,18 @@ class DrivingBot(HardwareBot):
                 self.clear_pins()
                 time.sleep(DrivingBot.WAITING_TIME)
 
-    def follow_line(self, time_step=0.05, extra_drive_time=0.5):
+    def follow_line(self, time_step=0.05, extra_drive_time=0.45):
         prev_state = Infrared.COMPLETELY_OFF
         state = None
 
         while True:
             time.sleep(time_step)
             state = self.get_ir_states()
-            # print(state)
+
+            # Exit if obstacle 
+            if self.get_forward_distance() < HardwareBot.INTERSECTION_OBSTACLE_DISTANCE:
+                state = BLOCKED
+                break  
 
             # Robot is off the street - exit
             if state == Infrared.COMPLETELY_OFF:
@@ -312,7 +320,16 @@ class DrivingBot(HardwareBot):
 
             prev_state = state
 
-        time.sleep(extra_drive_time)
+        # Extra drive time to go past intersection
+        if state != BLOCKED:
+            self.drive_forward()
+            time.sleep(extra_drive_time)
+
         self.clear_pins()
         time.sleep(DrivingBot.WAITING_TIME)
+
         return state
+
+    def street_blocked(self):
+        return self.get_forward_distance() < HardwareBot.STREET_OBSTACLE_DISTANCE
+

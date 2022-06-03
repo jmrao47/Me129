@@ -3,47 +3,45 @@ import threading
 import traceback
 
 from mapping_bot import MappingBot
+import cfg 
+
+def user_input(robot):
+    while True:
+        command = input('Command: ')
+        command_args = command.split()
+
+        if not robot.is_valid_task(command_args[0]):
+            print('Invalid command!')
+            continue 
+
+        robot.stop_current_task()
+        robot.start_task(*command_args)
 
 if __name__ == "__main__":
+    # Initialize global variables
+    cfg.init()
+
     # Instantiate the low-level object
     robot = MappingBot()
-    thread = threading.Thread(target = robot.ultrasound.run_continual)
-    thread.start()
+
+    ultrasound_thread = threading.Thread(target = robot.ultrasound.run_continual)
+    ultrasound_thread.start()
+
+    driving_thread = threading.Thread(target = robot.driving_loop)
+    driving_thread.start()
 
     # Run the code
     try:
-        #while True: 
-        #    print(robot.ultrasound.get_distances())
-        
-        #time.sleep(1)
-        #robot.drive_with_obstacles()
-
-        #time.sleep(1)
-        #print(robot.ultrasound.get_distances())
-        #robot.wall_following()
-
-        # input()
-
-        # robot.ultrasound.trigger()
-        # time.sleep(0.2)
-        # print('distances:', robot.ultrasound.get_distances())
-        # input()
-
-        robot.map_course()
-        lon = int(input('Target longitude: '))
-        lat = int(input('Target latitude: '))
-
-        robot.dijkstra((lon, lat))
-        robot.drive_back()
+        user_input(robot)
 
     except BaseException as ex:
         print("Ending due to exception: %s" % repr(ex))
         traceback.print_exc()
 
+    # Shutdown cleanly
+    robot.shutdown()
 
     # Wait for the triggering thread to be done
     robot.ultrasound.stop_continual()
-    thread.join()
-
-    # Shutdown cleanly
-    robot.shutdown()
+    ultrasound_thread.join()
+    driving_thread.join()
