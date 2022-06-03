@@ -166,7 +166,8 @@ class MappingBot(DrivingBot):
 
         while True:
             # Get current intersection
-            cur_intersection = self.get_or_create_intersection(cfg.longitude, cfg.latitude)   
+            cur_intersection = self.get_or_create_intersection(cfg.longitude, cfg.latitude)
+            cur_intersection.blocked = False    
             if UNKNOWN in cur_intersection.streets or BLOCKED in cur_intersection.streets:
                 self.map_streets(cur_intersection)
  
@@ -183,7 +184,7 @@ class MappingBot(DrivingBot):
                 break
 
             # Break if all intersections fully explored
-            if len(unexplored_intersections) == 0:
+            if len(unexplored_intersections) == 0 and target_coordinates == ():
                 print(f'final intersection: {cur_intersection}')
                 break     
 
@@ -216,8 +217,12 @@ class MappingBot(DrivingBot):
                             closest_unexplored = intersection 
                             min_dist = dist 
 
-                self.dijkstra(closest_unexplored)
-                new_cardinal_direction = cur_intersection.headingToTarget
+                if closest_unexplored is None: 
+                    new_cardinal_direction = \
+                    cur_intersection.get_closest_neighbor_direction(target_coordinates, CONNECTED)
+                else: 
+                    self.dijkstra(closest_unexplored.get_coordinates())
+                    new_cardinal_direction = cur_intersection.headingToTarget
 
             # Turn to new direction 
             cur_intersection.streets[new_cardinal_direction] = CONNECTED

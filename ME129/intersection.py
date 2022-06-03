@@ -10,7 +10,7 @@ SOUTH = 2
 EAST = 3
 STOP = 'Stop'
 
-HEADING = {NORTH:'north', WEST:'west ', SOUTH:'south', EAST:'east', None:'none', STOP:'stop'} 
+HEADING = {NORTH:'north', WEST:'west', SOUTH:'south', EAST:'east', None:'none', STOP:'stop'} 
 HEADING_TO_INDEX = {v: k for k, v in HEADING.items()}
 
 # Street status
